@@ -1,5 +1,5 @@
 const router = require('express').Router();
-const { User } = require('../../models');
+const { User, Post, Comment, Vote } = require('../../models');
 
 // get all users
 router.get('/', (req, res) => {
@@ -18,7 +18,27 @@ router.get('/:id', (req, res) => {
     attributes: { exclude: ['password'] },
     where: {
       id: req.params.id
-    }
+    },
+    include: [
+      {
+        model: Post,
+        attributes: ['id', 'title', 'post_url', 'created_at']
+      },
+      {
+        model: Comment,
+        attributes: ['id', 'comment_text', 'created_at'],
+        include: {
+          model: Post,
+          attributes: ['title']
+        }
+      },
+      {
+        model: Post,
+        attributes: ['title'],
+        through: Vote,
+        as: 'voted_posts'
+      }
+    ]
   })
     .then(dbUserData => {
       if (!dbUserData) {
@@ -60,6 +80,7 @@ router.post('/login', (req, res) => {
     }
 
     const validPassword = dbUserData.checkPassword(req.body.password);
+
     if (!validPassword) {
       res.status(400).json({ message: 'Incorrect password!' });
       return;
@@ -67,22 +88,14 @@ router.post('/login', (req, res) => {
 
     res.json({ user: dbUserData, message: 'You are now logged in!' });
   });
-})
-
-
+});
 
 router.put('/:id', (req, res) => {
   // expects {username: 'Lernantino', email: 'lernantino@gmail.com', password: 'password1234'}
-  // pass in req.body instead to only update what's passed through
-  User.update(req.body, {
-    individualHooks: true,
-    where: {
-      id: req.params.id
-    }
-  })
 
   // pass in req.body instead to only update what's passed through
   User.update(req.body, {
+    individualHooks: true,
     where: {
       id: req.params.id
     }
